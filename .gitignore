@@ -1,0 +1,15 @@
+sata1.vdi
+sata2.vdi
+sata3.vdi
+sata4.vdi
+.vagrant/machines/raids/virtualbox/action_provision
+.vagrant/machines/raids/virtualbox/action_set_name
+.vagrant/machines/raids/virtualbox/box_meta
+.vagrant/machines/raids/virtualbox/creator_uid
+.vagrant/machines/raids/virtualbox/id
+.vagrant/machines/raids/virtualbox/index_uuid
+.vagrant/machines/raids/virtualbox/private_key
+.vagrant/machines/raids/virtualbox/synced_folders
+.vagrant/machines/raids/virtualbox/vagrant_cwd
+.vagrant/rgloader/loader.rb
+.vscode/settings.json
