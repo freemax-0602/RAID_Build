@@ -1,2 +1,6 @@
 ---
 # raids start yml
+- hosts: raids
+  remote_user: root
+  roles:
+    - raids

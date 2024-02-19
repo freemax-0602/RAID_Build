@@ -1,0 +1,62 @@
+
+# Проверка наличия RAID-массивов в системе
+- name: arrays | Checking Status Of Array(s)
+  shell: "cat /proc/mdstat | grep {{ item.name }}"
+  register: "array_check"
+  changed_when: false
+  failed_when: false
+  with_items: '{{ mdadm_arrays }}'
+  check_mode: no
+
+# Создание RAID-массива
+# Передается "да", 
+- name: arrays | Creating Array(s)
+  shell: "yes | mdadm --create /dev/{{ item.name }} --level={{ item.level }} --raid-devices={{ item.devices|count }} {{ item.devices| join (' ') }}"
+  register: "array_created"
+  with_items: '{{ mdadm_arrays }}'
+  when: >
+        item.state|lower == "present" and
+        array_check.results[0].rc != 0
+
+# Capture the raid array details to append to /etc/mdadm/mdadm.conf
+# in order to persist between reboots
+- name: arrays | Capturing Array Details
+  command: "mdadm --detail --scan"
+  register: "array_details"
+  changed_when: false
+
+# Установка файловой системы на RAID-массива
+- name: arrays | Creating Array(s) Filesystem
+  filesystem:
+    fstype: "{{ item.filesystem }}"
+    opts: "{{ item.filesystem_opts | default(omit) }}"
+    dev: "/dev/{{ item.name }}"
+  with_items: '{{ mdadm_arrays }}'
+  when:
+  - item.state|lower == "present"
+  - item.filesystem is defined
+
+# Монтирование RAID-массива
+- name: arrays | Mounting Array(s)
+  mount:
+    name: "{{ item.mountpoint }}"
+    src: "/dev/{{ item.name }}"
+    fstype: "{{ item.filesystem }}"
+    state: "mounted"
+    opts: "{{ item.opts | default(omit) }}"
+  with_items: '{{ mdadm_arrays }}'
+  when:
+  - item.state|lower == "present"
+  - item.filesystem is defined
+  - item.mountpoint is defined
+
+# Наполняем массив данными
+- name: arrays | Copy data on array
+  command: cp -r /var/{{ item }} '/mnt/md0'
+  loop:
+  - log
+
+# Разрушаем массив
+- name: arrays | Degradet Array
+  shell: mdadm --manage /dev/{{ item.name }} --fail {{ dev_1 }}
+  

@@ -1,2 +1,3 @@
 ---
-# tasks file for raid-role
+# tasks file for raids
+- include_tasks: raids_arrays.yml
