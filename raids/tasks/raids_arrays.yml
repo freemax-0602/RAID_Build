@@ -58,5 +58,24 @@
 
 # Разрушаем массив
 - name: arrays | Degradet Array
-  shell: mdadm --manage /dev/{{ item.name }} --fail {{ dev_1 }}
-  
+  shell: mdadm --manage /dev/{{ item.name }} --fail '/dev/sdb'
+  register: array_fail
+  with_items: '{{ mdadm_arrays }}'
+  when: >
+        item.state|lower == "present"
+
+# Вывод "поврежденного" диска из массива
+- name: arrays | Remove disk on Array
+  shell: mdadm --manage /dev/{{ item.name }} --remove '/dev/sdb'
+  register: array_remove
+  with_items: '{{ mdadm_arrays }}'
+  when: >
+        item.state|lower == "present"
+
+# Добавление "живого" диска в массив
+- name: arrays | Add disk to Array
+  shell: mdadm --manage /dev/{{ item.name }} --add '/dev/sdd'
+  register: array_add
+  with_items: '{{ mdadm_arrays }}'
+  when: >
+        item.state|lower == "present"
