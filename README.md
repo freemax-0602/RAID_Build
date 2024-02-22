@@ -107,4 +107,4 @@ I/O size (minimum/optimal): 512 bytes / 512 bytes
 
 ```
 
-3. 
+3. Функции Raids:

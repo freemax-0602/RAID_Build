@@ -1,84 +1,126 @@
-
-# Проверка наличия RAID-массивов в системе
-# Результат проверки записываем в переменную array_check
-# Пропускаются ошибки (если текущий массив уже существует)
-- name: arrays | Checking Status Of Array(s)
-  shell: "cat /proc/mdstat | grep {{ item.name }}"
-  register: "array_check"
-  changed_when: false
-  failed_when: false
-  with_items: '{{ mdadm_arrays }}'
-  check_mode: no
-  
-# Создание RAID-массива
-# Если результат проверки на наличие массива md0 венрнул не 0
-- name: arrays | Creating Array(s)
-  with_items: '{{ mdadm_arrays }}'
-  shell: "yes | mdadm --create /dev/{{ item.name }} --level={{ item.level }} --raid-devices=3 {{ item.dev_1 }} {{ item.dev_2 }} {{ item.dev_3 }}"
-  register: "array_created"
-  when: >
-        item.state|lower == "present" and
-        array_check.results[0].rc != 0
-
-# Получение статуса RAID-массивов
-- name: arrays | Capturing Array Details
-  command: "mdadm --detail --scan"
-  register: "array_details"
-  changed_when: false
-
-# Установка файловой системы на RAID-массива
-- name: arrays | Creating Array(s) Filesystem
-  with_items: '{{ mdadm_arrays }}'
-  filesystem:
-    fstype: "{{ item.filesystem }}"
-    opts: "{{ item.filesystem_opts | default(omit) }}"
-    dev: "/dev/{{ item.name }}"
-  when:
-  - item.state|lower == "present"
-  - item.filesystem is defined
-
-# Монтирование RAID-массива
-- name: arrays | Mounting Array(s)
-  with_items: '{{ mdadm_arrays }}'
-  mount:
-    name: "{{ item.mountpoint }}"
-    src: "/dev/{{ item.name }}"
-    fstype: "{{ item.filesystem }}"
-    state: "mounted"
-    opts: "{{ item.opts | default(omit) }}"
-  when:
-  - item.state|lower == "present"
-  - item.filesystem is defined
-  - item.mountpoint is defined
-  register: "array_details"
-
-# Наполняем массив данными
-- name: arrays | Copy data on array
-  command: cp -r /var/{{ item }} '/mnt/md0'
-  loop:
-  - log
-
-# Разрушаем массив
-- name: arrays | Degradet Array
-  shell: mdadm --manage /dev/{{ item.name }} --fail {{ item.dev_3  }}
-  register: array_fail
-  with_items: '{{ mdadm_arrays }}'
+---
+# Установка утилиты "mdadm" на ОС Debian
+- include_tasks: install_debian.yml
+  when: ansible_facts.os_family == "Debian"
   tags:
-    - fail_array
-    - degradet_array
+    - install
 
-# Вывод "поврежденного" диска из массива
-- name: arrays | Remove disk on Array
-  shell: mdadm --manage /dev/{{ item.name }} --remove {{ item.dev_3 }}
-  register: array_remove
-  with_items: '{{ mdadm_arrays }}'
+# Установка утилиты "mdadm" на ОС RedHat
+- include_tasks: install_RedHat.yml
+  when: ansible_facts.os_family == "RedHat"
   tags:
-    - degradet_array
-
-# Добавление "живого" диска в массив
-- name: arrays | Add disk to Array
-  with_items: '{{ mdadm_arrays }}'
-  shell: mdadm --manage /dev/{{ item.name }} --add {{ item.dev_4 }}
-  register: array_add
-  tags:
-    - degradet_array
+    - install
+#
+## Сборка Raid массива
+#- include_task: create.yml
+#  tags: 
+#    - create
+#
+## Проверка состояния Raid-массива на хостах
+#- include_task: check.yml
+#  tags:
+#    - check
+#
+## Эмуляция поломки Raid-массива
+#- include_task: fail.yml
+#  tags:
+#    - fail
+#
+## Починка Raid-массива
+#- include_task: fix.yml
+#  tags:
+#    - fix
+#
+## Удаление Raid-массива
+#- include_tasks: wipe.yml
+#  when: >
+#        mdadm_force_wipe is defined and
+#        mdadm_force_wipe
+#  tags:
+#    - wipe
+#
+#
+#
+### Проверка наличия RAID-массивов в системе
+### Результат проверки записываем в переменную array_check
+### Пропускаются ошибки (если текущий массив уже существует)
+##- name: arrays | Checking Status Of Array(s)
+##  shell: "cat /proc/mdstat | grep {{ item.name }}"
+##  register: "array_check"
+##  changed_when: false
+#  failed_when: false
+#  with_items: '{{ mdadm_arrays }}'
+#  check_mode: no
+#  
+## Создание RAID-массива
+## Если результат проверки на наличие массива md0 венрнул не 0
+#- name: arrays | Creating Array(s)
+#  with_items: '{{ mdadm_arrays }}'
+#  shell: "yes | mdadm --create /dev/{{ item.name }} --level={{ item.level }} --raid-devices=3 {{ item.dev_1 }} {{ item.dev_2 }} {{ item.dev_3 }}"
+#  register: "array_created"
+#  when: >
+#        item.state|lower == "present" and
+#        array_check.results[0].rc != 0
+#
+## Получение статуса RAID-массивов
+#- name: arrays | Capturing Array Details
+#  command: "mdadm --detail --scan"
+#  register: "array_details"
+#  changed_when: false
+#
+## Установка файловой системы на RAID-массива
+#- name: arrays | Creating Array(s) Filesystem
+#  with_items: '{{ mdadm_arrays }}'
+#  filesystem:
+#    fstype: "{{ item.filesystem }}"
+#    opts: "{{ item.filesystem_opts | default(omit) }}"
+#    dev: "/dev/{{ item.name }}"
+#  when:
+#  - item.state|lower == "present"
+#  - item.filesystem is defined
+#
+## Монтирование RAID-массива
+#- name: arrays | Mounting Array(s)
+#  with_items: '{{ mdadm_arrays }}'
+#  mount:
+#    name: "{{ item.mountpoint }}"
+#    src: "/dev/{{ item.name }}"
+#    fstype: "{{ item.filesystem }}"
+#    state: "mounted"
+#    opts: "{{ item.opts | default(omit) }}"
+#  when:
+#  - item.state|lower == "present"
+#  - item.filesystem is defined
+#  - item.mountpoint is defined
+#  register: "array_details"
+#
+## Наполняем массив данными
+#- name: arrays | Copy data on array
+#  command: cp -r /var/{{ item }} '/mnt/md0'
+#  loop:
+#  - log
+#
+## Разрушаем массив
+#- name: arrays | Degradet Array
+#  shell: mdadm --manage /dev/{{ item.name }} --fail {{ item.dev_3  }}
+#  register: array_fail
+#  with_items: '{{ mdadm_arrays }}'
+#  tags:
+#    - fail_array
+#    - degradet_array
+#
+## Вывод "поврежденного" диска из массива
+#- name: arrays | Remove disk on Array
+#  shell: mdadm --manage /dev/{{ item.name }} --remove {{ item.dev_3 }}
+#  register: array_remove
+#  with_items: '{{ mdadm_arrays }}'
+#  tags:
+#    - degradet_array
+#
+## Добавление "живого" диска в массив
+#- name: arrays | Add disk to Array
+#  with_items: '{{ mdadm_arrays }}'
+#  shell: mdadm --manage /dev/{{ item.name }} --add {{ item.dev_4 }}
+#  register: array_add
+#  tags:
+#    - degradet_array
