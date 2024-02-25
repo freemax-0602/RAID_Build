@@ -1,5 +1,4 @@
 ---
-# defaults file for raid-role
 # Define Raid Arrays to manage
 mdadm_arrays:
     # Имя RAID-массива
@@ -13,34 +12,6 @@ mdadm_arrays:
     # Файловая система, устанавливаемая на raid-массив
     filesystem: 'ext4'
     # Уровень собираемого рейда
-    # 0|1|4|5|6|10
     level: '5'
-    # Точка монтирования рейда
-    mountpoint: '/mnt/md0'
     # Состояние массива 
     state: 'present'
-    # Set mount options (optional) !!!!
-    opts: 'noatime'
-
-# defaults file for raid-role
-# Define Raid Arrays to manage
-#mdadm_arrays:
-#    # Имя RAID-массива
-#  - name: 'md0'
-#    # Диски для сборки RAID-массива
-#    devices: 
-#    - '/dev/sdb'
-#    - '/dev/sdc'
-#    - '/dev/sdd'
-#    - '/dev/sde'
-#    # Файловая система, устанавливаемая на raid-массив
-#    filesystem: 'ext4'
-#    # Уровень собираемого рейда
-#    # 0|1|4|5|6|10
-#    level: '5'
-#    # Точка монтирования рейда
-#    mountpoint: '/mnt/md0'
-#    # Состояние массива 
-#    state: 'present'
-#    # Set mount options (optional) !!!!
-#    opts: 'noatime'

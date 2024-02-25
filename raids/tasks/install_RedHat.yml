@@ -7,4 +7,4 @@
 - name: arrays | Setting distribution-specific facts
   set_fact:
     update_initramfs: "dracut -f"
-    mdadm_conf: "/etc/mdadm.conf"
+    mdadm_conf: "/etc/mdadm/mdadm.conf"

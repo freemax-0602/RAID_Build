@@ -1,0 +1,130 @@
+---
+# Проверка наличия существующих RAID-Массивов
+- name: arrays | Checking Status Of Array(s)
+  shell: "cat /proc/mdstat | grep {{ item.name }}"
+  register: "array_check"
+  changed_when: false
+  failed_when: false
+  with_items: '{{ mdadm_arrays }}'
+  check_mode: no
+
+# Создание Raid-массива
+- name: arrays | Creating Array(s)
+  shell: "yes | mdadm --create /dev/{{ item.name }} --level={{ item.level }} {% if item.level != 1 %}--chunk={{item.chunk_size|default('512K')}}{% endif %} --metadata={{ item.raid_metadata_version | default(1.2) }} --raid-devices={{ item.devices|count - 1 }} {{ item.devices[0:3]| join (' ') }}"
+  register: "array_created"
+  with_items: '{{ mdadm_arrays }}'
+  when: >
+        item.state|lower == "present" and
+        array_check.results[0].rc != 0
+
+# Запись сведений о RAID-массива для добавления в mdadm.conf
+# для того, чтобы сохранять RAID-массив между перезагрузками
+- name: arrays | Capturing Array Details
+  command: "mdadm --detail --scan"
+  register: "array_details"
+  changed_when: false
+
+# Создание конфига 
+- name: arrays | Create mdadm
+  file:
+    path="/etc/mdadm"
+    mode=0755
+    owner=root
+    group=root
+    state=directory
+
+# Подтягивание шаблона
+- name: arrays | Add {{ mdadm_conf }}
+  template:
+    src: templates/etc/mdadm/mdadm.conf.j2
+    dest: /etc/mdadm/mdadm.conf
+    owner: root
+
+# Обновление mdadm.conf
+- name: arrays | Updating {{ mdadm_conf }}
+  lineinfile:
+    dest: "{{ mdadm_conf }}"
+    regexp: "^{{ item }}"
+    line: "{{ item }}"
+    state: "present"
+  with_items: '{{ array_details.stdout_lines }}'
+  when: array_created.changed
+
+# Эмуляция поломки RAID-массива
+- name: arrays | Degradet Array
+  with_items: '{{ mdadm_arrays }}'
+  shell: mdadm --manage /dev/{{ item.name }} --fail {{ item.devices[2] }}
+  register: array_fail
+
+# Вывод "поврежденного" диска из массива
+- name: arrays | Remove disk on Array
+  with_items: '{{ mdadm_arrays }}'
+  shell: mdadm --manage /dev/{{ item.name }} --remove {{ item.devices[2] }}
+  register: array_remove
+
+  # Добавление "живого" диска в массив
+- name: arrays | Add disk to Array(s)
+  with_items: '{{ mdadm_arrays }}'
+  shell: mdadm --manage /dev/{{ item.name }} --add {{ item.devices[3] }}
+
+  # Обновление mdadm.conf
+- name: arrays | Updating {{ mdadm_conf }}
+  lineinfile:
+    dest: "{{ mdadm_conf }}"
+    regexp: "^{{ item }}"
+    line: "{{ item }}"
+    state: "present"
+  with_items: '{{ array_details.stdout_lines }}'
+  when: array_created.changed
+
+# Создание таблицы разделов
+- name: arrays | Create gpt partition
+  with_items: '{{ mdadm_arrays }}'
+  shell: "parted -s /dev/{{ item.name }} mklabel gpt"
+
+# Создание 5-ти партиций на RAID-массиве
+- name: arrays | Create a new ext4 primary partition
+  shell: "parted -s /dev/md0 mkpart primary ext4 {{ item }}"
+  loop:
+    - 0% 20%
+    - 20% 40%
+    - 40% 60%
+    - 60% 80%
+    - 80% 100%
+
+# Созданние дирректорий для монтирования партиций
+- name: arrays | Create partition dir
+  file:
+    path="/raid/part{{ item }}"
+    mode=0755
+    owner=root
+    group=root
+    state=directory
+  loop:
+    - 1
+    - 2
+    - 3
+    - 4
+    - 5
+
+# Установка файловой системы на партиции
+- name: arrays | Install filesystem on partition
+  shell: "mkfs.ext4 /dev/md0p{{ item }}"
+  loop:
+   - 1
+   - 2
+   - 3
+   - 4
+   - 5
+
+# Монтирование партиций
+- name: arrays | Mounting partition
+  shell: "mount /dev/md0p{{ item }} /raid/part{{ item }}"
+  loop:
+   - 1
+   - 2
+   - 3
+   - 4
+   - 5
+
+      

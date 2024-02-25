@@ -18,3 +18,6 @@ sata4.vdi
 .gitignore
 2024-02-20-06-07-05.097-VBoxSVC-5785.log
 2024-02-20-06-07-07.067-VBoxHeadless-6290.log
+2024-02-22-14-13-54.096-VBoxHeadless-7483.log
+2024-02-22-14-13-54.060-VBoxSVC-6991.log
+.vagrant/provisioners/ansible/inventory/vagrant_ansible_inventory
